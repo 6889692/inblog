@@ -46,7 +46,7 @@ function makeDb(options: DbOptions = {}): MockDb & { preparedSqls: string[]; blo
     password_hash: seedCustom ?? options.accountHash ?? null,
     publicTag: 'blog-public',
     privateTag: 'blog-private',
-    momentsTag: 'moment',
+    momentsTag: 'blog-moment',
     pinnedTag: 'blog-pinned',
   })
   const sessions = new Map<string, { userId: string; expiresAt: number }>()
@@ -136,7 +136,7 @@ function makeDb(options: DbOptions = {}): MockDb & { preparedSqls: string[]; blo
                 // Password upsert binds 3 args; the ensure-insert binds 2.
                 const row = blogRows.get(String(args[0])) ?? {
                   title: '', description: '', password_hash: null,
-                  publicTag: 'blog-public', privateTag: 'blog-private', momentsTag: 'moment', pinnedTag: 'blog-pinned',
+                  publicTag: 'blog-public', privateTag: 'blog-private', momentsTag: 'blog-moment', pinnedTag: 'blog-pinned',
                 }
                 if (args.length === 3) row.password_hash = String(args[1])
                 blogRows.set(String(args[0]), row)
@@ -336,7 +336,7 @@ describe('blog routes', () => {
     const body = await res.json()
     expect(body.accent).toBe('wisteria')
     expect(body.username).toBe('alice')
-    expect(body.momentsTag).toBe('moment')
+    expect(body.momentsTag).toBe('blog-moment')
     expect(body.authorName).toBe('Alice Liddell')
     expect(body.authorAvatarUrl).toBe('https://example.com/avatar.png')
   })
@@ -446,14 +446,14 @@ describe('blog routes', () => {
     const app = makeAuthedApp()
     const res = await app.request('/settings', {}, env(makeDb({ users: { alice: 'u1' }, meta })))
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ hasCustomPassword: true, title: null, description: null, publicTag: 'blog-public', privateTag: 'blog-private', momentsTag: 'moment', pinnedTag: 'blog-pinned' })
+    expect(await res.json()).toEqual({ hasCustomPassword: true, title: null, description: null, publicTag: 'blog-public', privateTag: 'blog-private', momentsTag: 'blog-moment', pinnedTag: 'blog-pinned' })
   })
 
   it('GET /settings reports hasCustomPassword false when no custom password is set', async () => {
     const app = makeAuthedApp()
     const res = await app.request('/settings', {}, env(makeDb({ users: { alice: 'u1' } })))
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ hasCustomPassword: false, title: null, description: null, publicTag: 'blog-public', privateTag: 'blog-private', momentsTag: 'moment', pinnedTag: 'blog-pinned' })
+    expect(await res.json()).toEqual({ hasCustomPassword: false, title: null, description: null, publicTag: 'blog-public', privateTag: 'blog-private', momentsTag: 'blog-moment', pinnedTag: 'blog-pinned' })
   })
 
   it('PUT /settings with password null clears the custom password without touching posts', async () => {
@@ -499,7 +499,7 @@ describe('blog routes', () => {
     expect(db.blogRows.get('u1')?.password_hash).toBe(passwordHash)
 
     const settings = await app.request('/settings', {}, env(db))
-    expect(await settings.json()).toEqual({ hasCustomPassword: false, title: null, description: null, publicTag: 'blog-public', privateTag: 'blog-private', momentsTag: 'moment', pinnedTag: 'blog-pinned' })
+    expect(await settings.json()).toEqual({ hasCustomPassword: false, title: null, description: null, publicTag: 'blog-public', privateTag: 'blog-private', momentsTag: 'blog-moment', pinnedTag: 'blog-pinned' })
 
     const auth = await app.request(
       '/alice/auth',
@@ -576,7 +576,7 @@ describe('blog routes', () => {
     expect(db.preparedSqls.some((s) => s.includes('blog_posts'))).toBe(false)
 
     const settings = await app.request('/settings', {}, env(db))
-    expect(await settings.json()).toEqual({ hasCustomPassword: true, title: null, description: null, publicTag: 'blog-public', privateTag: 'blog-private', momentsTag: 'moment', pinnedTag: 'blog-pinned' })
+    expect(await settings.json()).toEqual({ hasCustomPassword: true, title: null, description: null, publicTag: 'blog-public', privateTag: 'blog-private', momentsTag: 'blog-moment', pinnedTag: 'blog-pinned' })
 
     const oldAuth = await app.request(
       '/alice/auth',

@@ -1,6 +1,6 @@
 export const BLOG_PUBLIC_TAG = 'blog-public'
 export const BLOG_PRIVATE_TAG = 'blog-private'
-export const MOMENTS_TAG = 'moment'
+export const MOMENTS_TAG = 'blog-moment'
 export const PINNED_TAG = 'blog-pinned'
 
 export type BlogTier = 'none' | 'public' | 'private'

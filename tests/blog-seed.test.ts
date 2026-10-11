@@ -109,7 +109,7 @@ describe('seedBlogTables', () => {
   it('classifies moments via moments + visibility tags', async () => {
     const { db } = seedDb({
       shares: [{ slug: 'm1', note_id: 'n1', created_at: 1000 }],
-      tagNames: ['moment', 'blog-private'],
+      tagNames: ['blog-moment', 'blog-private'],
     })
     await seedBlogTables(db as unknown as D1Database)
     const inserts = db.preparedArgs.filter((args) => args[2] === 'm1')
@@ -141,7 +141,7 @@ describe('reseedMomentsClassification', () => {
   it('recomputes kinds from tags and marks completion', async () => {
     const { db } = seedDb({
       resyncNotes: [{ id: 'n1', tag_names: `moment${String.fromCharCode(1)}blog-public` }],
-      tagNames: ['moment', 'blog-public'],
+      tagNames: ['blog-moment', 'blog-public'],
     })
     await reseedMomentsClassification(db as unknown as D1Database)
     expect(hasSql(db, 'INSERT INTO blog_posts')).toBe(true)

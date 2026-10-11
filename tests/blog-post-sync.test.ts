@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import { syncBlogPost, withdrawBlogPost } from '../src/worker/blog/publish'
 
 interface MockRow {
@@ -38,7 +38,7 @@ function makeDb(handlers: Array<[key: string, (args: unknown[]) => Promise<{ all
 const SETTINGS_ROW = {
   title: '',
   description: '',
-  settings_json: '{"publicTag":"blog-public","privateTag":"blog-private","momentsTag":"moment"}',
+  settings_json: '{"publicTag":"blog-public","privateTag":"blog-private","momentsTag":"blog-moment"}',
 }
 
 function syncDb(overrides: { existingSlug?: string | null } = {}): ReturnType<typeof makeDb> {
@@ -75,7 +75,7 @@ describe('syncBlogPost', () => {
 
   it('marks kind as moment for a public moment (moments + public tags)', async () => {
     const { db, args } = syncDb()
-    await syncBlogPost(db as unknown as D1Database, 'u1', 'n1', ['moment', 'blog-public'])
+    await syncBlogPost(db as unknown as D1Database, 'u1', 'n1', ['blog-moment', 'blog-public'])
     const insertArgs = args.find((a) => a.includes('public') || a.includes('moment'))
     expect(insertArgs).toBeDefined()
     expect(insertArgs).toContain('moment')
@@ -83,7 +83,7 @@ describe('syncBlogPost', () => {
 
   it('marks a private moment for moments + private tags', async () => {
     const { db, args } = syncDb()
-    await syncBlogPost(db as unknown as D1Database, 'u1', 'n1', ['moment', 'blog-private'])
+    await syncBlogPost(db as unknown as D1Database, 'u1', 'n1', ['blog-moment', 'blog-private'])
     const insertArgs = args.find((a) => a.includes('moment'))
     expect(insertArgs).toBeDefined()
     expect(insertArgs).toContain('private')
@@ -92,7 +92,7 @@ describe('syncBlogPost', () => {
 
   it('publishes nothing for a bare moments tag', async () => {
     const { db, sqls } = syncDb()
-    await syncBlogPost(db as unknown as D1Database, 'u1', 'n1', ['moment'])
+    await syncBlogPost(db as unknown as D1Database, 'u1', 'n1', ['blog-moment'])
     expect(hasSql(sqls, 'INSERT INTO blog_posts')).toBe(false)
     expect(hasSql(sqls, 'DELETE FROM blog_posts')).toBe(true)
   })

@@ -611,7 +611,7 @@ export const SCHEMA_MIGRATIONS: readonly SchemaMigration[] = [
     skipIfColumnExists: { table: 'blog_settings', column: 'settings_json' },
     statements: [
       `ALTER TABLE blog_settings ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}'`,
-      `UPDATE blog_settings SET settings_json = json_object('publicTag', public_tag, 'privateTag', private_tag, 'momentsTag', 'moment')`,
+      `UPDATE blog_settings SET settings_json = json_object('publicTag', public_tag, 'privateTag', private_tag, 'momentsTag', 'blog-moment')`,
     ],
   },
   {

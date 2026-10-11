@@ -1,4 +1,4 @@
-// @vitest-environment node
+﻿// @vitest-environment node
 // Upgrade-path regression tests using real SQLite: fresh installs, the
 // v13 production state (no blog tables), and the v15-era blog schema must
 // all converge through initializeDatabase without throwing.
@@ -105,7 +105,7 @@ describe('blog migration upgrade paths', () => {
     expect(cols).not.toContain('public_tag')
     expect(cols).not.toContain('moments_folder')
     const row = sqlite.prepare('SELECT settings_json FROM blog_settings WHERE user_id = ?').get('u1') as { settings_json: string }
-    expect(JSON.parse(row.settings_json)).toEqual({ publicTag: 'my-public', privateTag: 'blog-private', momentsTag: 'moment' })
+    expect(JSON.parse(row.settings_json)).toEqual({ publicTag: 'my-public', privateTag: 'blog-private', momentsTag: 'blog-moment' })
   }, 60000)
 
   it('initializes a fresh database without throwing', async () => {

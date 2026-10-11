@@ -28,11 +28,13 @@ interface DbOptions {
   blogPrivateNoteIds?: string[]
   userSettings?: Record<string, string>
   resyncNotes?: unknown[]
+  userProfile?: Record<string, { name: string; avatarUrl: string }>
 }
 
 function makeDb(options: DbOptions = {}): MockDb & { preparedSqls: string[]; blogRows: Map<string, { title: string; description: string; password_hash: string | null; publicTag: string; privateTag: string; momentsTag: string; pinnedTag: string }> } {
   const users = new Map(Object.entries(options.users ?? {}))
   const meta = options.meta ?? new Map()
+  const userProfile = new Map(Object.entries(options.userProfile ?? {}))
   const userSettings = new Map(Object.entries(options.userSettings ?? {}))
   const posts = options.posts ?? []
   // Mirrors the v14/v16 seed: effective hash = custom app_meta key, else account.
@@ -96,6 +98,10 @@ function makeDb(options: DbOptions = {}): MockDb & { preparedSqls: string[]; blo
               }
               if (sql.includes('SELECT password_hash FROM users')) {
                 return (options.accountHash ? { password_hash: options.accountHash } : null) as T | null
+              }
+              if (sql.includes('SELECT name, avatar_url FROM users')) {
+                const profile = userProfile.get(String(args[0]))
+                return (profile === undefined ? null : { name: profile.name, avatar_url: profile.avatarUrl }) as T | null
               }
               if (sql.includes('SELECT settings FROM users')) {
                 const settings = userSettings.get(String(args[0]))
@@ -322,6 +328,7 @@ describe('blog routes', () => {
     const db = makeDb({
       users: { alice: 'u1' },
       userSettings: { u1: JSON.stringify({ appearance: { accent: 'wisteria' } }) },
+      userProfile: { u1: { name: 'Alice Liddell', avatarUrl: 'https://example.com/avatar.png' } },
     })
     const app = makeApp()
     const res = await app.request('/alice/meta', {}, env(db))
@@ -330,6 +337,8 @@ describe('blog routes', () => {
     expect(body.accent).toBe('wisteria')
     expect(body.username).toBe('alice')
     expect(body.momentsTag).toBe('moment')
+    expect(body.authorName).toBe('Alice Liddell')
+    expect(body.authorAvatarUrl).toBe('https://example.com/avatar.png')
   })
 
   it('/meta falls back to cinnabar when the owner has no accent set', async () => {
@@ -615,8 +624,33 @@ describe('blog routes', () => {
     })
   })
 
-  it('GET /:username/moments returns the paged moments response without a session', async () => {
+  it('GET post detail records a view without blocking the response', async () => {
+    const waited: unknown[] = []
+    const ctx = { waitUntil: (p: unknown) => { waited.push(p) } }
+    const meta: MetaStore = new Map([['blog_session:u1:tok123', String(Date.now() + 60_000)]])
+    const db = makeDb({
+      users: { alice: 'u1' },
+      meta,
+      postDetail: {
+        id: 'n1', title: 'Hello', excerpt: '', created_at: 1700000000000,
+        updated_at: 1700000000000, slug: 'hello', visibility: 'public',
+        tag_names: 'blog-public', content: 'body',
+      },
+    })
     const app = makeApp()
+    const res = await app.request(
+      '/alice/posts/hello',
+      { headers: { Cookie: 'blog_session_u1=tok123' } },
+      env(db),
+      ctx,
+    )
+    expect(res.status).toBe(200)
+    await Promise.all(waited)
+    expect(db.preparedSqls.some((s) => s.includes('UPDATE blog_posts SET views = views + 1'))).toBe(true)
+    expect(await res.json()).toMatchObject({ slug: 'hello', views: 0 })
+  })
+
+  it('GET /:username/moments returns the paged moments response without a session', async () => {    const app = makeApp()
     const res = await app.request('/alice/moments', {}, env(makeDb({ users: { alice: 'u1' } })))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ moments: [], page: 1, hasMore: false })

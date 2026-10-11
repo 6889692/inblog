@@ -1,4 +1,5 @@
 import type { BlogPostSummary } from '@shared/blog/types'
+import { t } from '../../lib/i18n'
 import { coverSrc } from '../cover'
 import { visibleTags } from '../filter-tags'
 
@@ -26,6 +27,7 @@ export function FeedCard({ post, username, hiddenTags }: {
           <h2 className="blog-feed-card-title">{post.title}</h2>
           <div className="blog-feed-card-meta">
             <time dateTime={new Date(post.created_at).toISOString()}>{formatDate(post.created_at)}</time>
+            <span className="blog-feed-card-views">{t('blog.views', { count: post.views })}</span>
           </div>
           {post.excerpt && <p className="blog-feed-card-excerpt">{post.excerpt}</p>}
           {tags.length > 0 && (

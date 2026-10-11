@@ -37,6 +37,8 @@ export interface BlogMeta {
   privateTag: string
   momentsTag: string
   pinnedTag: string
+  authorName: string
+  authorAvatarUrl: string
   accent: string
 }
 

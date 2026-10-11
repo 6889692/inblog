@@ -150,6 +150,7 @@ export const ZH_CN_MESSAGES = {
     "blog.timeline_load_error": "无法加载时间线。",
     "blog.menu": "菜单",
     "blog.open_menu": "打开菜单",
+    "blog.views": "{count} 次阅读",
     "blog.theme": "主题",
     "blog.to_light": "切换到亮色",
     "blog.to_dark": "切换到暗色",

@@ -785,10 +785,34 @@ a.blog-chip:hover {
 .blog-post-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   color: var(--blog-text-faint);
   font-size: 13px;
   margin-bottom: 10px;
+}
+
+.blog-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.blog-author-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  object-fit: cover;
+}
+
+.blog-author-avatar--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--blog-surface);
+  color: var(--blog-text-soft);
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .blog-post-tags {

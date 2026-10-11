@@ -149,6 +149,7 @@ export const EN_US_MESSAGES = {
     "blog.timeline_load_error": "Could not load the timeline.",
     "blog.menu": "Menu",
     "blog.open_menu": "Open menu",
+    "blog.views": "{count} views",
     "blog.theme": "Theme",
     "blog.to_light": "Switch to light mode",
     "blog.to_dark": "Switch to dark mode",

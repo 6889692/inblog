@@ -21,7 +21,7 @@ import {
   clearBlogSession, deleteBlogSessionCookie,
 } from './auth'
 import {
-  getBlogOwner, getBlogOwnerUsername, hasBlogPassword, listBlogPosts, getBlogPost,
+  getBlogOwner, getBlogOwnerUsername, getBlogOwnerProfile, hasBlogPassword, listBlogPosts, getBlogPost,
   listBlogMoments, listBlogTimeline, listBlogTags, listPostsByTag,
   getAdjacentPosts,
 } from './queries'
@@ -157,6 +157,7 @@ blogRoutes.get('/:username/meta', async (c) => {
   const userId = c.get('blogOwnerId')!
   const username = c.req.param('username')
   const config = await getBlogTagConfig(c.env.DB, userId)
+  const author = await getBlogOwnerProfile(c.env.DB, userId)
   return c.json({
     username,
     title: await getBlogTitle(c.env.DB, userId),
@@ -165,6 +166,8 @@ blogRoutes.get('/:username/meta', async (c) => {
     privateTag: config.privateTag,
     momentsTag: config.momentsTag,
     pinnedTag: config.pinnedTag,
+    authorName: author.name,
+    authorAvatarUrl: author.avatarUrl,
     accent: await getBlogAccent(c.env.DB, userId),
   })
 })
@@ -172,6 +175,23 @@ blogRoutes.get('/:username/meta', async (c) => {
 blogRoutes.use('/:username/*', blogAuthMiddleware)
 
 const requestTier = (c: Context<AppBindings>) => (c.get('blogAuthed') ? 'all' : 'public')
+
+/**
+ * Fire-and-forget background work. Prefers waitUntil; without an execution
+ * context (bare app.request in tests) the task still runs, just untracked.
+ * Note: reading c.executionCtx with no context throws, hence try/catch.
+ */
+function background(c: Context<AppBindings>, task: Promise<unknown>): void {
+  let ctx: { waitUntil(promise: Promise<unknown>): void } | undefined
+  try {
+    ctx = c.executionCtx
+  } catch {
+    ctx = undefined
+  }
+  const guarded = task.catch(() => {})
+  if (ctx) ctx.waitUntil(guarded)
+  else void guarded
+}
 
 blogRoutes.get('/:username/session', (c) => {
   return c.json({ authed: c.get('blogAuthed') })
@@ -202,6 +222,14 @@ blogRoutes.get('/:username/posts/:slug', async (c) => {
     return c.json({ error: { code: 'blog_auth_required', message: 'Blog authentication required' } }, 401)
   }
   const adjacent = await getAdjacentPosts(c.env.DB, userId, requestTier(c), post.created_at, post.id)
+  // Same fire-and-forget pattern as share views: atomic increment in the
+  // background, never blocking or failing the response. No dedup, by design.
+  background(
+    c,
+    c.env.DB.prepare(`UPDATE blog_posts SET views = views + 1 WHERE user_id = ?1 AND note_id = ?2`)
+      .bind(userId, post.id)
+      .run(),
+  )
   return c.json({ ...post, previous: adjacent.previous, next: adjacent.next })
 })
 

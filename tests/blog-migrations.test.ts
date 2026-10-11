@@ -63,6 +63,10 @@ function blogSettingsColumns(sqlite: DatabaseSync): string[] {
   return (sqlite.prepare('PRAGMA table_info(blog_settings)').all() as Array<{ name: string }>).map((c) => c.name)
 }
 
+function blogPostsColumns(sqlite: DatabaseSync): string[] {
+  return (sqlite.prepare('PRAGMA table_info(blog_posts)').all() as Array<{ name: string }>).map((c) => c.name)
+}
+
 describe('blog migration upgrade paths', () => {
   it('upgrades a v13 production database without throwing', async () => {
     const { initializeDatabase } = await import('../src/worker/db/schema')
@@ -75,6 +79,7 @@ describe('blog migration upgrade paths', () => {
     const tables = (sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map((t) => t.name)
     expect(tables).toContain('blog_posts')
     expect(tables).toContain('blog_sessions')
+    expect(blogPostsColumns(sqlite)).toContain('views')
   }, 60000)
 
   it('migrates v15-era tag columns into settings_json', async () => {

@@ -30,6 +30,7 @@ const BLOG_POSTS_TABLE = `CREATE TABLE IF NOT EXISTS blog_posts (
   visibility TEXT NOT NULL CHECK (visibility IN ('public', 'private')),
   kind TEXT NOT NULL DEFAULT 'article' CHECK (kind IN ('article', 'moment')),
   is_pinned INTEGER NOT NULL DEFAULT 0 CHECK (is_pinned IN (0, 1)),
+  views INTEGER NOT NULL DEFAULT 0,
   published_at INTEGER NOT NULL,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
@@ -613,6 +614,15 @@ export const SCHEMA_MIGRATIONS: readonly SchemaMigration[] = [
       `UPDATE blog_settings SET settings_json = json_object('publicTag', public_tag, 'privateTag', private_tag, 'momentsTag', 'moment')`,
     ],
   },
+  {
+    version: 17,
+    // Fresh installs already get views from the base table definition;
+    // skip there (the ADD would fail as duplicate).
+    skipIfColumnExists: { table: 'blog_posts', column: 'views' },
+    statements: [
+      `ALTER TABLE blog_posts ADD COLUMN views INTEGER NOT NULL DEFAULT 0`,
+    ],
+  },
 ]
 
 const FTS_STATEMENT = `CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
@@ -650,7 +660,7 @@ const REQUIRED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   backup_runs: ['id', 'user_id', 'trigger', 'status', 'started_at', 'finished_at', 'note_count', 'file_count', 'bytes', 'detail'],
   shares: ['slug', 'note_id', 'user_id', 'password_hash', 'expires_at', 'views', 'created_at'],
   blog_settings: ['user_id', 'title', 'description', 'password_hash', 'settings_json', 'created_at', 'updated_at'],
-  blog_posts: ['user_id', 'note_id', 'slug', 'visibility', 'kind', 'is_pinned', 'published_at', 'created_at', 'updated_at'],
+  blog_posts: ['user_id', 'note_id', 'slug', 'visibility', 'kind', 'is_pinned', 'views', 'published_at', 'created_at', 'updated_at'],
   blog_sessions: ['token', 'user_id', 'expires_at', 'created_at'],
   share_asset_sessions: ['id', 'slug', 'password_hash', 'expires_at', 'created_at'],
   changes: ['seq', 'user_id', 'entity', 'entity_id', 'op', 'at'],

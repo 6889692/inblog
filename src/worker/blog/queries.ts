@@ -34,7 +34,7 @@ const TAG_SUBQUERY = `(SELECT GROUP_CONCAT(t.name, char(1)) FROM note_tags nt
      JOIN tags t ON t.id = nt.tag_id
     WHERE nt.note_id = n.id AND t.user_id = n.user_id) AS tag_names`
 
-const BLOG_POST_COLUMNS = `bp.note_id AS id, n.title, n.excerpt, bp.published_at AS created_at, n.updated_at, bp.slug, bp.visibility, n.content, ${TAG_SUBQUERY}`
+const BLOG_POST_COLUMNS = `bp.note_id AS id, n.title, n.excerpt, bp.published_at AS created_at, n.updated_at, bp.slug, bp.visibility, bp.views AS views, n.content, ${TAG_SUBQUERY}`
 
 const BLOG_POST_JOIN = `FROM blog_posts bp JOIN notes n ON n.id = bp.note_id AND n.user_id = bp.user_id`
 
@@ -52,6 +52,7 @@ interface BlogPostRow {
   updated_at: number
   slug: string
   visibility: 'public' | 'private'
+  views: number | null
   content: string
   tag_names: string | null
 }
@@ -65,6 +66,7 @@ function toBlogPostSummary(row: BlogPostRow): BlogPostSummary {
     updated_at: row.updated_at,
     slug: row.slug,
     visibility: row.visibility,
+    views: row.views ?? 0,
     tags: splitTags(row.tag_names),
     cover: firstImageSrc(row.content),
   }
@@ -83,6 +85,17 @@ export async function getBlogOwnerUsername(db: D1Database): Promise<string | nul
     .prepare(`SELECT username FROM users WHERE role = 'owner' ORDER BY created_at ASC LIMIT 1`)
     .first<{ username: string }>()
   return row?.username ?? null
+}
+
+export async function getBlogOwnerProfile(
+  db: D1Database,
+  userId: string,
+): Promise<{ name: string; avatarUrl: string }> {
+  const row = await db
+    .prepare(`SELECT name, avatar_url FROM users WHERE id = ?1`)
+    .bind(userId)
+    .first<{ name: string | null; avatar_url: string | null }>()
+  return { name: row?.name || '', avatarUrl: row?.avatar_url || '' }
 }
 
 export async function hasBlogPassword(db: D1Database, userId: string): Promise<boolean> {
@@ -333,6 +346,7 @@ export async function listPostsByTag(
       excerpt: row.excerpt,
       updated_at: row.updated_at,
       visibility: row.visibility,
+      views: row.views ?? 0,
       cover: firstImageSrc(row.content),
       ...base,
     }

@@ -6,13 +6,16 @@ import LoginPage from './login'
 import { useBlogQuery } from './use-blog-query'
 import { visibleTags } from '../filter-tags'
 import { t } from '../../lib/i18n'
+import { fullTime } from '../../lib/time'
+import { countText, readingMinutes } from '@shared/markdown-utils'
+import { useState } from 'react'
 
-function formatDate(ts: number): string {
-  if (!Number.isFinite(ts) || !ts)
-    return ''
-  const d = new Date(ts)
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+function AuthorAvatar({ src, name }: { src: string; name: string }) {
+  const [failed, setFailed] = useState(false)
+  if (src && !failed) {
+    return <img src={src} alt="" width={18} height={18} onError={() => setFailed(true)} className="blog-author-avatar" />
+  }
+  return <span className="blog-author-avatar blog-author-avatar--fallback" aria-hidden>{(name.trim()[0] ?? '?').toUpperCase()}</span>
 }
 
 function safeDecodeURIComponent(value: string): string {
@@ -33,6 +36,10 @@ export default function PostPage({ username, slug, hiddenTags }: {
     () => blogApi.post(username, decodedSlug),
     [username, decodedSlug],
   )
+  const { data: meta } = useBlogQuery(
+    () => blogApi.meta(username),
+    [username],
+  )
 
   if (status === 'auth')
     return <LoginPage username={username} />
@@ -47,6 +54,8 @@ export default function PostPage({ username, slug, hiddenTags }: {
 
   const base = `/blog/${encodeURIComponent(username)}`
   const tags = visibleTags(data.tags, hiddenTags)
+  const authorName = meta?.authorName || username
+  const words = countText(data.content).words
   return (
     <div className="blog-post-page">
       <div className="blog-post-content">
@@ -54,7 +63,18 @@ export default function PostPage({ username, slug, hiddenTags }: {
           <header className="blog-post-header">
             <h1 className="blog-post-title">{data.title}</h1>
             <div className="blog-post-meta">
-              <time dateTime={new Date(data.created_at).toISOString()}>{formatDate(data.created_at)}</time>
+              <span className="blog-author">
+                <AuthorAvatar src={meta?.authorAvatarUrl ?? ''} name={authorName} />
+                {authorName}
+              </span>
+              <span>·</span>
+              <time dateTime={new Date(data.updated_at).toISOString()}>{fullTime(data.updated_at)}</time>
+              <span>·</span>
+              <span>{words}{t('common.words')}</span>
+              <span>·</span>
+              <span>{t('common.about')}{readingMinutes(words)}{t('common.min')}</span>
+              <span>·</span>
+              <span>{t('blog.views', { count: data.views })}</span>
             </div>
             {tags.length > 0 && (
               <div className="blog-post-tags">

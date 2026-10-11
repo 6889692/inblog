@@ -7,6 +7,7 @@ export interface BlogPostSummary {
   tags: string[]
   slug: string
   visibility: 'public' | 'private'
+  views: number
   cover: string | null
 }
 

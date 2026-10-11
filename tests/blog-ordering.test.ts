@@ -76,11 +76,11 @@ describe('feed ordering with real SQLite', () => {
     expect(posts.map((p) => p.id)).toEqual(['b', 'a'])
   })
 
-  it('keeps pinned posts on top sorted by modified time', async () => {
+  it('keeps pinned posts on top sorted by published_at like the rest', async () => {
     const db = realDb()
     await seedPost(db, { note: 'old', slug: 'old', published: 9_000, updated: 1_000 })
-    await seedPost(db, { note: 'pinned-old', slug: 'pinned-old', pinned: true, published: 1_000, updated: 3_000 })
-    await seedPost(db, { note: 'pinned-new', slug: 'pinned-new', pinned: true, published: 2_000, updated: 8_000 })
+    await seedPost(db, { note: 'pinned-old', slug: 'pinned-old', pinned: true, published: 1_000, updated: 8_000 })
+    await seedPost(db, { note: 'pinned-new', slug: 'pinned-new', pinned: true, published: 2_000, updated: 3_000 })
     const { posts } = await listBlogPosts(db, 'u1', 'all', 1, 10)
     expect(posts.map((p) => p.id)).toEqual(['pinned-new', 'pinned-old', 'old'])
   })

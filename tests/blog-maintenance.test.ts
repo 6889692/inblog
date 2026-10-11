@@ -23,7 +23,9 @@ describe('purgeExpiredOperationalData', () => {
     }
     const result = await purgeExpiredOperationalData(db as unknown as D1Database, 1_700_000_000_000, 10)
     expect(sqls.some((sql) => sql.includes('DELETE FROM blog_sessions'))).toBe(true)
+    expect(sqls.some((sql) => sql.includes("key LIKE 'blog_view:%'"))).toBe(true)
     expect(result.blogSessions).toBe(2)
+    expect(result.blogViews).toBe(2)
     expect(result.sessions).toBe(2)
   })
 })

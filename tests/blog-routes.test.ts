@@ -624,6 +624,62 @@ describe('blog routes', () => {
     })
   })
 
+  it('repeat views within the window do not count again', async () => {
+    const waited: unknown[] = []
+    const ctx = { waitUntil: (p: unknown) => { waited.push(p) } }
+    const meta: MetaStore = new Map([
+      ['blog_session:u1:tok123', String(Date.now() + 60_000)],
+      ['blog_view:u1:hello:sess:tok123', String(Date.now())],
+    ])
+    const db = makeDb({
+      users: { alice: 'u1' },
+      meta,
+      postDetail: {
+        id: 'n1', title: 'Hello', excerpt: '', created_at: 1700000000000,
+        updated_at: 1700000000000, slug: 'hello', visibility: 'public',
+        tag_names: 'blog-public', content: 'body',
+      },
+    })
+    const app = makeApp()
+    const res = await app.request(
+      '/alice/posts/hello',
+      { headers: { Cookie: 'blog_session_u1=tok123' } },
+      env(db),
+      ctx,
+    )
+    expect(res.status).toBe(200)
+    await Promise.all(waited)
+    expect(db.preparedSqls.some((s) => s.includes('UPDATE blog_posts SET views = views + 1'))).toBe(false)
+  })
+
+  it('views count again after the window passes', async () => {
+    const waited: unknown[] = []
+    const ctx = { waitUntil: (p: unknown) => { waited.push(p) } }
+    const meta: MetaStore = new Map([
+      ['blog_session:u1:tok123', String(Date.now() + 60_000)],
+      ['blog_view:u1:hello:sess:tok123', String(Date.now() - 20 * 60_000)],
+    ])
+    const db = makeDb({
+      users: { alice: 'u1' },
+      meta,
+      postDetail: {
+        id: 'n1', title: 'Hello', excerpt: '', created_at: 1700000000000,
+        updated_at: 1700000000000, slug: 'hello', visibility: 'public',
+        tag_names: 'blog-public', content: 'body',
+      },
+    })
+    const app = makeApp()
+    const res = await app.request(
+      '/alice/posts/hello',
+      { headers: { Cookie: 'blog_session_u1=tok123' } },
+      env(db),
+      ctx,
+    )
+    expect(res.status).toBe(200)
+    await Promise.all(waited)
+    expect(db.preparedSqls.some((s) => s.includes('UPDATE blog_posts SET views = views + 1'))).toBe(true)
+  })
+
   it('GET post detail records a view without blocking the response', async () => {
     const waited: unknown[] = []
     const ctx = { waitUntil: (p: unknown) => { waited.push(p) } }

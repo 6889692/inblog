@@ -27,6 +27,7 @@ import {
 } from './queries'
 import { resyncBlogPosts } from './publish'
 import { getBlogSettings } from './settings'
+import { blogViewKey, recordBlogView, shouldCountBlogView } from './views'
 
 export const blogRoutes = new Hono<AppBindings>()
 
@@ -223,13 +224,18 @@ blogRoutes.get('/:username/posts/:slug', async (c) => {
   }
   const adjacent = await getAdjacentPosts(c.env.DB, userId, requestTier(c), post.created_at, post.id)
   // Same fire-and-forget pattern as share views: atomic increment in the
-  // background, never blocking or failing the response. No dedup, by design.
-  background(
-    c,
-    c.env.DB.prepare(`UPDATE blog_posts SET views = views + 1 WHERE user_id = ?1 AND note_id = ?2`)
-      .bind(userId, post.id)
-      .run(),
-  )
+  // background, never blocking or failing the response. Repeat views from
+  // the same viewer only count once per window (StrictMode double-fetch,
+  // refresh spam); no cross-viewer dedup, by design.
+  const ownerId = c.get('blogOwnerId')!
+  const viewerToken = getCookie(c, BLOG_SESSION_COOKIE(ownerId))
+  const viewer = viewerToken ? `sess:${viewerToken}` : `ip:${requestClientIp(c)}`
+  const viewKey = blogViewKey(userId, post.slug, viewer)
+  const count = await shouldCountBlogView(c.env.DB, viewKey)
+  background(c, (async () => {
+    if (!count) return
+    await recordBlogView(c.env.DB, viewKey, userId, post.id)
+  })())
   return c.json({ ...post, previous: adjacent.previous, next: adjacent.next })
 })
 

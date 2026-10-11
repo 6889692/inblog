@@ -1,6 +1,7 @@
 import { blogEntryOfTags, isPinnedTag, type BlogKind, type BlogTier } from '@shared/blog/tags'
 import { newSlug } from '../lib/id'
 import { splitTags } from '../db/rows'
+import { frontMatterPublishedAt } from './queries'
 import { getBlogSettings, type BlogSettings } from './settings'
 
 export async function ensureBlogPost(
@@ -10,6 +11,7 @@ export async function ensureBlogPost(
   tier: Exclude<BlogTier, 'none'>,
   kind: BlogKind,
   pinned: boolean,
+  manualPublishedAt: number | null,
 ): Promise<void> {
   const existing = await db
     .prepare(`SELECT slug, is_pinned FROM blog_posts WHERE user_id = ?1 AND note_id = ?2`)
@@ -18,13 +20,15 @@ export async function ensureBlogPost(
   const now = Date.now()
   const pinnedValue = pinned ? 1 : 0
   if (existing) {
-    // Slug and published_at stay frozen; only visibility/kind/pin move.
+    // Slug stays frozen; visibility/kind/pin move. published_at follows an
+    // explicit front-matter date, otherwise keeps its frozen value.
     await db
-      .prepare(`UPDATE blog_posts SET visibility = ?1, kind = ?2, is_pinned = ?3, updated_at = ?4 WHERE user_id = ?5 AND note_id = ?6`)
-      .bind(tier, kind, pinnedValue, now, userId, noteId)
+      .prepare(`UPDATE blog_posts SET visibility = ?1, kind = ?2, is_pinned = ?3, published_at = COALESCE(?4, published_at), updated_at = ?5 WHERE user_id = ?6 AND note_id = ?7`)
+      .bind(tier, kind, pinnedValue, manualPublishedAt, now, userId, noteId)
       .run()
     return
   }
+  const publishedAt = manualPublishedAt ?? now
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       await db
@@ -33,7 +37,7 @@ export async function ensureBlogPost(
             (user_id, note_id, slug, visibility, kind, is_pinned, published_at, created_at, updated_at)
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
         )
-        .bind(userId, noteId, newSlug(), tier, kind, pinnedValue, now, now, now)
+        .bind(userId, noteId, newSlug(), tier, kind, pinnedValue, publishedAt, now, now)
         .run()
       return
     } catch (error) {
@@ -46,10 +50,10 @@ export async function ensureBlogPost(
   // row so the visibility/kind change is never silently dropped.
   const updated = await db
     .prepare(
-      `UPDATE blog_posts SET slug = ?1, visibility = ?2, kind = ?3, is_pinned = ?4, updated_at = ?5
-        WHERE user_id = ?6 AND note_id = ?7`,
+      `UPDATE blog_posts SET slug = ?1, visibility = ?2, kind = ?3, is_pinned = ?4, published_at = COALESCE(?5, published_at), updated_at = ?6
+        WHERE user_id = ?7 AND note_id = ?8`,
     )
-    .bind(`${newSlug()}-${noteId.slice(0, 8)}`, tier, kind, pinnedValue, Date.now(), userId, noteId)
+    .bind(`${newSlug()}-${noteId.slice(0, 8)}`, tier, kind, pinnedValue, manualPublishedAt, Date.now(), userId, noteId)
     .run()
   if (!updated.meta.changes) {
     await db
@@ -58,7 +62,7 @@ export async function ensureBlogPost(
           (user_id, note_id, slug, visibility, kind, is_pinned, published_at, created_at, updated_at)
           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
       )
-      .bind(userId, noteId, `${newSlug()}-${noteId.slice(0, 8)}`, tier, kind, pinnedValue, now, now, now)
+      .bind(userId, noteId, `${newSlug()}-${noteId.slice(0, 8)}`, tier, kind, pinnedValue, publishedAt, now, now)
       .run()
   }
 }
@@ -80,6 +84,7 @@ export async function syncBlogPost(
   userId: string,
   noteId: string,
   tags: readonly string[],
+  content: string,
   opts?: { settings?: BlogSettings },
 ): Promise<void> {
   const settings = opts?.settings ?? (await getBlogSettings(db, userId))
@@ -88,7 +93,15 @@ export async function syncBlogPost(
     await withdrawBlogPost(db, userId, noteId)
     return
   }
-  await ensureBlogPost(db, userId, noteId, entry.tier, entry.kind, isPinnedTag(tags, settings))
+  await ensureBlogPost(
+    db,
+    userId,
+    noteId,
+    entry.tier,
+    entry.kind,
+    isPinnedTag(tags, settings),
+    frontMatterPublishedAt(content),
+  )
 }
 
 /**
@@ -99,7 +112,7 @@ export async function resyncBlogPosts(db: D1Database, userId: string): Promise<v
   const settings = await getBlogSettings(db, userId)
   const { results } = await db
     .prepare(
-      `SELECT n.id,
+      `SELECT n.id, n.content,
         (SELECT GROUP_CONCAT(t.name, char(1)) FROM note_tags nt
            JOIN tags t ON t.id = nt.tag_id
           WHERE nt.note_id = n.id AND t.user_id = n.user_id) AS tag_names
@@ -107,8 +120,8 @@ export async function resyncBlogPosts(db: D1Database, userId: string): Promise<v
         WHERE n.user_id = ?1 AND n.deleted_at IS NULL`,
     )
     .bind(userId)
-    .all<{ id: string; tag_names: string | null }>()
+    .all<{ id: string; content: string; tag_names: string | null }>()
   for (const note of results) {
-    await syncBlogPost(db, userId, note.id, splitTags(note.tag_names), { settings })
+    await syncBlogPost(db, userId, note.id, splitTags(note.tag_names), note.content, { settings })
   }
 }

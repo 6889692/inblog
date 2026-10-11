@@ -335,7 +335,7 @@ notesRoutes.post('/', async (c) => {
   if (!created) throw ApiError.conflict('This note id is already in use')
   await broadcastCursor(c)
   if (insertResult?.meta.changes) {
-    await syncBlogPost(c.env.DB, userId, id, extractTags(content))
+    await syncBlogPost(c.env.DB, userId, id, extractTags(content), content)
     await enqueueNoteIndex(c.env.DB, userId, id, 'embed')
     scheduleFtsDrain(c)
   }
@@ -527,6 +527,7 @@ notesRoutes.patch('/:id', async (c) => {
       userId,
       id,
       contentChanged ? (derivedTags ?? extractTags(newContent)) : splitTags(row.tag_names),
+      contentChanged ? newContent : row.content,
     )
   }
   const changeResult = results.at(-1) as D1Result<{ seq: number }> | undefined
@@ -675,7 +676,7 @@ notesRoutes.post('/:id/restore', async (c) => {
   if (!updated?.meta.changes) {
     throw ApiError.conflict('This note was modified elsewhere', { server: await loadNote(c.env.DB, userId, id) })
   }
-  await syncBlogPost(c.env.DB, userId, id, extractTags(row.content))
+  await syncBlogPost(c.env.DB, userId, id, extractTags(row.content), row.content)
   await broadcastCursor(c)
   await enqueueNoteIndex(c.env.DB, userId, id, 'embed')
   scheduleFtsDrain(c)
@@ -833,7 +834,7 @@ notesRoutes.post('/:id/duplicate', async (c) => {
     }
     throw error
   }
-  await syncBlogPost(c.env.DB, userId, id, extractTags(content))
+  await syncBlogPost(c.env.DB, userId, id, extractTags(content), content)
   await broadcastCursor(c)
   await enqueueNoteIndex(c.env.DB, userId, id, 'embed')
   scheduleFtsDrain(c)
@@ -960,7 +961,7 @@ notesRoutes.post('/:id/versions/:versionId/restore', async (c) => {
   if (!updated?.meta.changes) {
     throw ApiError.conflict('This note was modified elsewhere', { server: await loadNote(c.env.DB, userId, id) })
   }
-  await syncBlogPost(c.env.DB, userId, id, extractTags(version.content))
+  await syncBlogPost(c.env.DB, userId, id, extractTags(version.content), version.content)
   await broadcastCursor(c)
   await enqueueNoteIndex(c.env.DB, userId, id, 'embed')
   scheduleFtsDrain(c)

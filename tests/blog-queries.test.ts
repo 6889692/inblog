@@ -172,6 +172,7 @@ function mockDbWithTaggedMoments(): MockDb {
 
 function mockDbWithAdjacent(): MockDb {
   return makeDb([
+    ['bp.note_id = ?', async () => ({ first: { published_at: 1_700_000_000_000 } })],
     ['bp.note_id < ?', async () => ({ first: { title: 'Older post', slug: 'older' } })],
     ['bp.note_id > ?', async () => ({ first: { title: 'Newer post', slug: 'newer' } })],
   ])
@@ -222,9 +223,9 @@ describe('blog queries', () => {
     expect(await getBlogPost(mockDb(), 'u1', 'missing', 'all')).toBeNull()
   })
 
-  it('getAdjacentPosts orders by frozen published_at', async () => {
+  it('getAdjacentPosts orders by effective published_at', async () => {
     const db = mockDbWithAdjacent()
-    const adjacent = await getAdjacentPosts(db, 'u1', 'all', 1_700_000_000_000, 'n1')
+    const adjacent = await getAdjacentPosts(db, 'u1', 'all', 'n1')
     expect(adjacent.previous).toEqual({ title: 'Older post', slug: 'older' })
     expect(adjacent.next).toEqual({ title: 'Newer post', slug: 'newer' })
     expect(hasSql(db, 'bp.published_at < ?')).toBe(true)
@@ -234,7 +235,7 @@ describe('blog queries', () => {
   })
 
   it('getAdjacentPosts returns nulls when there are no neighbors', async () => {
-    const adjacent = await getAdjacentPosts(mockDb(), 'u1', 'all', 1_700_000_000_000, 'n1')
+    const adjacent = await getAdjacentPosts(mockDb(), 'u1', 'all', 'n1')
     expect(adjacent).toEqual({ previous: null, next: null })
   })
 
@@ -248,6 +249,7 @@ describe('blog queries', () => {
     expect(moments.hasMore).toBe(false)
     expect(hasSql(db, "bp.kind = 'moment'")).toBe(true)
     expect(hasSql(db, 'JOIN folders')).toBe(false)
+    expect(hasSql(db, 'ORDER BY bp.is_pinned DESC, bp.published_at DESC')).toBe(true)
   })
 
   it('listBlogMoments filters private moments in the public tier', async () => {

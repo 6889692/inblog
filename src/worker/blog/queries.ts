@@ -12,11 +12,11 @@ import { extractAttachmentIds, firstImageSrc, parseFrontMatter } from '@shared/m
 import { getMeta } from '../db/metadata'
 import { splitTags } from '../db/rows'
 
-function frontMatterCreated(content: string | null | undefined): number | null {
+function frontMatterTimestamp(content: string | null | undefined, key: string): number | null {
   if (!content) return null
   try {
     const { data } = parseFrontMatter(content)
-    const v = data?.created
+    const v = data?.[key]
     if (v == null) return null
     if (v instanceof Date) return v.getTime()
     if (typeof v === 'number') return v > 1e12 ? v : v * 1000
@@ -28,6 +28,14 @@ function frontMatterCreated(content: string | null | undefined): number | null {
     // ignore
   }
   return null
+}
+
+function frontMatterCreated(content: string | null | undefined): number | null {
+  return frontMatterTimestamp(content, 'created')
+}
+
+export function frontMatterPublishedAt(content: string | null | undefined): number | null {
+  return frontMatterTimestamp(content, 'published_at')
 }
 
 const TAG_SUBQUERY = `(SELECT GROUP_CONCAT(t.name, char(1)) FROM note_tags nt
@@ -188,9 +196,17 @@ export async function getAdjacentPosts(
   db: D1Database,
   userId: string,
   tier: 'public' | 'all',
-  createdAt: number,
   noteId: string,
 ): Promise<{ previous: AdjacentPost | null; next: AdjacentPost | null }> {
+  const own = await db
+    .prepare(
+      `SELECT bp.published_at AS published_at ${BLOG_POST_JOIN}
+        WHERE bp.user_id = ? AND ${visibilityClause(tier)} AND n.deleted_at IS NULL AND bp.note_id = ?`,
+    )
+    .bind(userId, noteId)
+    .first<{ published_at: number }>()
+  if (!own) return { previous: null, next: null }
+  const { published_at: createdAt } = own
   const base = `SELECT n.title, bp.slug ${BLOG_POST_JOIN} WHERE bp.user_id = ? AND ${visibilityClause(tier)} AND n.deleted_at IS NULL AND bp.kind = 'article'`
   const previous = await db
     .prepare(
@@ -222,7 +238,7 @@ export async function listBlogMoments(
     .prepare(
       `SELECT n.id, n.content, n.created_at, bp.slug AS slug, ${TAG_SUBQUERY}
         ${from}
-        ORDER BY bp.is_pinned DESC, n.updated_at DESC, n.created_at DESC, n.id DESC
+        ORDER BY bp.is_pinned DESC, bp.published_at DESC, n.id DESC
         LIMIT ? OFFSET ?`,
     )
     .bind(userId, limit, offset)

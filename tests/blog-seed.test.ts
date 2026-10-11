@@ -118,6 +118,22 @@ describe('seedBlogTables', () => {
     expect(inserts[0]).toContain('moment')
   })
 
+  it('seed honors front-matter published_at for ordering', async () => {
+    const { db } = seedDb({
+      shares: [{
+        slug: 'm2',
+        note_id: 'n2',
+        content: '---\npublished_at: "2021-03-04T00:00:00Z"\n---\n\nBody\n',
+        created_at: 1000,
+      }],
+      tagNames: ['blog-public'],
+    })
+    await seedBlogTables(db as unknown as D1Database)
+    const inserts = db.preparedArgs.filter((args) => args[2] === 'm2')
+    expect(inserts.length).toBe(1)
+    expect(inserts[0]).toContain(Date.parse('2021-03-04T00:00:00Z'))
+  })
+
   it('moves blog sessions into blog_sessions and clears old keys', async () => {
     const { db } = seedDb({
       sessions: [{ key: 'blog_session:u1:tok', value: '9999999999999' }],

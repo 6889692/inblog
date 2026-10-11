@@ -1,4 +1,5 @@
 ﻿import { BLOG_PRIVATE_TAG, BLOG_PUBLIC_TAG, MOMENTS_TAG, PINNED_TAG, blogEntryOfTags, isPinnedTag } from '@shared/blog/tags'
+import { frontMatterPublishedAt } from './queries'
 import { getMeta, setMeta } from '../db/metadata'
 import { LEGACY_BLOG_SESSION_PREFIX } from './settings'
 import { resyncBlogPosts } from './publish'
@@ -88,6 +89,7 @@ async function seedUserSessions(db: D1Database, userId: string): Promise<void> {
 interface SeedShare {
   slug: string
   note_id: string
+  content: string
   created_at: number
 }
 
@@ -104,7 +106,7 @@ async function seedUserPosts(db: D1Database, userId: string): Promise<void> {
   }
   const { results: shares } = await db
     .prepare(
-      `SELECT s.slug, s.note_id, s.created_at FROM shares s
+      `SELECT s.slug, s.note_id, n.content, s.created_at FROM shares s
          JOIN notes n ON n.id = s.note_id AND n.user_id = s.user_id
         WHERE s.user_id = ?1 AND n.deleted_at IS NULL
           AND (s.expires_at IS NULL OR s.expires_at > ?2)`,
@@ -130,7 +132,7 @@ async function seedUserPosts(db: D1Database, userId: string): Promise<void> {
           (user_id, note_id, slug, visibility, kind, is_pinned, published_at, created_at, updated_at)
           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
       )
-      .bind(userId, share.note_id, share.slug, entry.tier, entry.kind, isPinnedTag(names, config) ? 1 : 0, share.created_at, share.created_at, now)
+      .bind(userId, share.note_id, share.slug, entry.tier, entry.kind, isPinnedTag(names, config) ? 1 : 0, frontMatterPublishedAt(share.content) ?? share.created_at, share.created_at, now)
       .run()
   }
 }

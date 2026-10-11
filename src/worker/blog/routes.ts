@@ -222,7 +222,7 @@ blogRoutes.get('/:username/posts/:slug', async (c) => {
   if (post.visibility === 'private' && !c.get('blogAuthed')) {
     return c.json({ error: { code: 'blog_auth_required', message: 'Blog authentication required' } }, 401)
   }
-  const adjacent = await getAdjacentPosts(c.env.DB, userId, requestTier(c), post.created_at, post.id)
+  const adjacent = await getAdjacentPosts(c.env.DB, userId, requestTier(c), post.id)
   // Same fire-and-forget pattern as share views: atomic increment in the
   // background, never blocking or failing the response. Repeat views from
   // the same viewer only count once per window (StrictMode double-fetch,

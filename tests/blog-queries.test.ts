@@ -298,3 +298,56 @@ describe('blog queries', () => {
     expect(hasSql(db, 'is_moment')).toBe(true)
   })
 })
+
+describe('front-matter created override', () => {
+  const FM_TIME = Date.parse('2020-05-06T00:00:00Z')
+  const fmContent = `---\ncreated: "2020-05-06T00:00:00Z"\n---\n\nBody\n`
+
+  it('listBlogPosts prefers front-matter created over the stored timestamp', async () => {
+    const db = makeDb([
+      ['LIMIT ? OFFSET ?', async () => ({ all: [post({ created_at: 1_700_000_000_000, content: fmContent })] })],
+      ['COUNT(*)', async () => ({ first: { count: 1 } })],
+    ])
+    const posts = await listBlogPosts(db, 'u1', 'all', 1, 10)
+    expect(posts.posts[0]?.created_at).toBe(FM_TIME)
+  })
+
+  it('getBlogPost prefers front-matter created', async () => {
+    const db = makeDb([
+      ['bp.slug = ?', async () => ({ first: { ...post(), created_at: 1_700_000_000_000, content: fmContent } })],
+    ])
+    const detail = await getBlogPost(db, 'u1', 'my-slug', 'all')
+    expect(detail?.created_at).toBe(FM_TIME)
+  })
+
+  it('listBlogMoments prefers front-matter created', async () => {
+    const db = makeDb([
+      ['bp.kind', async () => ({
+        all: [{ id: 'm1', content: fmContent, created_at: 1_700_000_000_000, slug: 'm1', tag_names: null }],
+      })],
+    ])
+    const moments = await listBlogMoments(db, 'u1', 'all', 1, 20)
+    expect(moments.moments[0]?.created_at).toBe(FM_TIME)
+  })
+
+  it('listBlogTimeline prefers front-matter created for year grouping', async () => {
+    const db = makeDb([
+      ['n.content AS content', async () => ({
+        all: [{ id: 't1', title: 'T', created_at: 1_700_000_000_000, slug: 't1', content: fmContent }],
+      })],
+      ['COUNT(*)', async () => ({ first: { count: 1 } })],
+    ])
+    const timeline = await listBlogTimeline(db, 'u1', 'all', 1, 20)
+    expect(timeline.items[0]?.created_at).toBe(FM_TIME)
+    expect(timeline.items[0]?.year).toBe('2020')
+  })
+
+  it('falls back to the stored timestamp without front-matter created', async () => {
+    const db = makeDb([
+      ['LIMIT ? OFFSET ?', async () => ({ all: [post({ created_at: 1_700_000_000_000, content: 'plain body' })] })],
+      ['COUNT(*)', async () => ({ first: { count: 1 } })],
+    ])
+    const posts = await listBlogPosts(db, 'u1', 'all', 1, 10)
+    expect(posts.posts[0]?.created_at).toBe(1_700_000_000_000)
+  })
+})

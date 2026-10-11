@@ -301,50 +301,50 @@ describe('blog queries', () => {
   })
 })
 
-describe('front-matter created override', () => {
-  const FM_TIME = Date.parse('2020-05-06T00:00:00Z')
-  const fmContent = `---\ncreated: "2020-05-06T00:00:00Z"\n---\n\nBody\n`
+describe('displayed time follows the published_at column', () => {
+  const FM_PUB = Date.parse('2021-03-04T00:00:00Z')
+  const fmContent = `---\npublished_at: "2021-03-04T00:00:00Z"\ncreated: "2020-05-06T00:00:00Z"\n---\n\nBody\n`
 
-  it('listBlogPosts prefers front-matter created over the stored timestamp', async () => {
+  it('listBlogPosts shows published_at even when front-matter created differs', async () => {
     const db = makeDb([
-      ['LIMIT ? OFFSET ?', async () => ({ all: [post({ created_at: 1_700_000_000_000, content: fmContent })] })],
+      ['LIMIT ? OFFSET ?', async () => ({ all: [post({ created_at: FM_PUB, content: fmContent })] })],
       ['COUNT(*)', async () => ({ first: { count: 1 } })],
     ])
     const posts = await listBlogPosts(db, 'u1', 'all', 1, 10)
-    expect(posts.posts[0]?.created_at).toBe(FM_TIME)
+    expect(posts.posts[0]?.created_at).toBe(FM_PUB)
   })
 
-  it('getBlogPost prefers front-matter created', async () => {
+  it('getBlogPost shows published_at', async () => {
     const db = makeDb([
-      ['bp.slug = ?', async () => ({ first: { ...post(), created_at: 1_700_000_000_000, content: fmContent } })],
+      ['bp.slug = ?', async () => ({ first: { ...post(), created_at: FM_PUB, content: fmContent } })],
     ])
     const detail = await getBlogPost(db, 'u1', 'my-slug', 'all')
-    expect(detail?.created_at).toBe(FM_TIME)
+    expect(detail?.created_at).toBe(FM_PUB)
   })
 
-  it('listBlogMoments prefers front-matter created', async () => {
+  it('listBlogMoments shows published_at', async () => {
     const db = makeDb([
       ['bp.kind', async () => ({
-        all: [{ id: 'm1', content: fmContent, created_at: 1_700_000_000_000, slug: 'm1', tag_names: null }],
+        all: [{ id: 'm1', content: fmContent, created_at: FM_PUB, slug: 'm1', tag_names: null }],
       })],
     ])
     const moments = await listBlogMoments(db, 'u1', 'all', 1, 20)
-    expect(moments.moments[0]?.created_at).toBe(FM_TIME)
+    expect(moments.moments[0]?.created_at).toBe(FM_PUB)
   })
 
-  it('listBlogTimeline prefers front-matter created for year grouping', async () => {
+  it('listBlogTimeline shows published_at for year grouping', async () => {
     const db = makeDb([
       ['n.content AS content', async () => ({
-        all: [{ id: 't1', title: 'T', created_at: 1_700_000_000_000, slug: 't1', content: fmContent }],
+        all: [{ id: 't1', title: 'T', created_at: FM_PUB, slug: 't1', content: fmContent }],
       })],
       ['COUNT(*)', async () => ({ first: { count: 1 } })],
     ])
     const timeline = await listBlogTimeline(db, 'u1', 'all', 1, 20)
-    expect(timeline.items[0]?.created_at).toBe(FM_TIME)
-    expect(timeline.items[0]?.year).toBe('2020')
+    expect(timeline.items[0]?.created_at).toBe(FM_PUB)
+    expect(timeline.items[0]?.year).toBe('2021')
   })
 
-  it('falls back to the stored timestamp without front-matter created', async () => {
+  it('falls back to the stored timestamp without any front-matter dates', async () => {
     const db = makeDb([
       ['LIMIT ? OFFSET ?', async () => ({ all: [post({ created_at: 1_700_000_000_000, content: 'plain body' })] })],
       ['COUNT(*)', async () => ({ first: { count: 1 } })],

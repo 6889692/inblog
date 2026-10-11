@@ -30,10 +30,6 @@ function frontMatterTimestamp(content: string | null | undefined, key: string): 
   return null
 }
 
-function frontMatterCreated(content: string | null | undefined): number | null {
-  return frontMatterTimestamp(content, 'created')
-}
-
 export function frontMatterPublishedAt(content: string | null | undefined): number | null {
   return frontMatterTimestamp(content, 'published_at')
 }
@@ -70,7 +66,7 @@ function toBlogPostSummary(row: BlogPostRow): BlogPostSummary {
     id: row.id,
     title: row.title,
     excerpt: row.excerpt,
-    created_at: frontMatterCreated(row.content) ?? row.created_at,
+    created_at: row.created_at,
     updated_at: row.updated_at,
     slug: row.slug,
     visibility: row.visibility,
@@ -236,7 +232,7 @@ export async function listBlogMoments(
   const from = `${BLOG_POST_JOIN} WHERE bp.user_id = ? AND bp.kind = 'moment' AND ${visibilityClause(tier)} AND n.deleted_at IS NULL`
   const { results } = await db
     .prepare(
-      `SELECT n.id, n.content, n.created_at, bp.slug AS slug, ${TAG_SUBQUERY}
+      `SELECT n.id, n.content, bp.published_at AS created_at, bp.slug AS slug, ${TAG_SUBQUERY}
         ${from}
         ORDER BY bp.is_pinned DESC, bp.published_at DESC, n.id DESC
         LIMIT ? OFFSET ?`,
@@ -252,7 +248,7 @@ export async function listBlogMoments(
     moments: results.map((row) => ({
       id: row.id,
       content: row.content,
-      created_at: frontMatterCreated(row.content) ?? row.created_at,
+      created_at: row.created_at,
       slug: row.slug,
       tags: splitTags(row.tag_names),
     })),
@@ -287,12 +283,11 @@ export async function listBlogTimeline(
   const total = count?.count ?? 0
   return {
     items: results.map((row) => {
-      const created = frontMatterCreated(row.content) ?? row.created_at
       return {
         id: row.id,
         title: row.title,
-        created_at: created,
-        year: new Date(created).getFullYear().toString(),
+        created_at: row.created_at,
+        year: new Date(row.created_at).getFullYear().toString(),
         slug: row.slug,
       }
     }),
@@ -349,7 +344,7 @@ export async function listPostsByTag(
   return results.map((row) => {
     const base = {
       id: row.id,
-      created_at: frontMatterCreated(row.content) ?? row.created_at,
+      created_at: row.created_at,
       slug: row.slug,
       tags: splitTags(row.tag_names),
     }

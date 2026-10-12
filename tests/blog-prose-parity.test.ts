@@ -33,4 +33,11 @@ describe('blog prose parity with main prose', () => {
       expect(declarations(blogCss, blogSel)).toMatch(pattern)
     })
   }
+
+  it('md-example title marker is a square, not a triangle', () => {
+    const blogMarker = declarations(blogCss, '.blog-prose .markdown-example-title::before')
+    expect(blogMarker).toMatch(/border-radius:/)
+    expect(blogMarker).toContain("content: '';")
+    expect(blogMarker).not.toContain('▶')
+  })
 })

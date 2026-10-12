@@ -1417,15 +1417,22 @@ a.blog-chip:hover {
   border-bottom: 1px solid var(--blog-border);
 }
 .blog-prose .markdown-example-title {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55em;
   color: var(--blog-text-soft);
   font-size: 0.88em;
   font-weight: 600;
 }
 .blog-prose .markdown-example-title::before {
-  content: '▶';
-  margin-right: 0.5em;
-  color: var(--blog-accent);
-  font-size: 0.7em;
+  width: 0.58em;
+  height: 0.58em;
+  flex: none;
+  border-radius: 3px;
+  background: linear-gradient(135deg, var(--blog-accent), color-mix(in oklab, var(--blog-accent) 55%, var(--blog-callout-success)));
+  box-shadow: 0 0 0 3px var(--blog-accent-soft);
+  content: '';
 }
 .blog-prose .markdown-example-grid {
   display: grid;

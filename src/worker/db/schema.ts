@@ -50,6 +50,34 @@ const BLOG_SESSIONS_TABLE = `CREATE TABLE IF NOT EXISTS blog_sessions (
 )`
 const BLOG_SESSIONS_USER_INDEX = `CREATE INDEX IF NOT EXISTS idx_blog_sessions_user
   ON blog_sessions(user_id, expires_at)`
+const BLOG_COMMENTS_TABLE = `CREATE TABLE IF NOT EXISTS blog_comments (
+  id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  note_id TEXT NOT NULL,
+  parent_id TEXT,
+  author_type TEXT NOT NULL CHECK (author_type IN ('account', 'guest')),
+  author_user_id TEXT,
+  author_name TEXT NOT NULL DEFAULT '',
+  author_email TEXT NOT NULL DEFAULT '',
+  author_avatar TEXT NOT NULL DEFAULT '',
+  content TEXT NOT NULL DEFAULT '',
+  is_owner INTEGER NOT NULL DEFAULT 0 CHECK (is_owner IN (0, 1)),
+  is_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_deleted IN (0, 1)),
+  created_at INTEGER NOT NULL
+)`
+const BLOG_COMMENTS_POST_INDEX = `CREATE INDEX IF NOT EXISTS idx_blog_comments_post
+  ON blog_comments(owner_id, note_id, created_at ASC, id ASC)`
+const BLOG_REACTIONS_TABLE = `CREATE TABLE IF NOT EXISTS blog_reactions (
+  owner_id TEXT NOT NULL,
+  note_id TEXT NOT NULL,
+  emoji TEXT NOT NULL,
+  voter_type TEXT NOT NULL CHECK (voter_type IN ('account', 'guest')),
+  voter_key TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (owner_id, note_id, emoji, voter_key)
+)`
+const BLOG_REACTIONS_POST_INDEX = `CREATE INDEX IF NOT EXISTS idx_blog_reactions_post
+  ON blog_reactions(owner_id, note_id, emoji)`
 
 export const SCHEMA_STATEMENTS: readonly string[] = [
   `CREATE TABLE IF NOT EXISTS app_meta (
@@ -249,6 +277,10 @@ export const SCHEMA_STATEMENTS: readonly string[] = [
   BLOG_POSTS_MOMENTS_INDEX,
   BLOG_SESSIONS_TABLE,
   BLOG_SESSIONS_USER_INDEX,
+  BLOG_COMMENTS_TABLE,
+  BLOG_COMMENTS_POST_INDEX,
+  BLOG_REACTIONS_TABLE,
+  BLOG_REACTIONS_POST_INDEX,
 
   `CREATE TABLE IF NOT EXISTS share_asset_sessions (
     id TEXT PRIMARY KEY,
@@ -623,6 +655,20 @@ export const SCHEMA_MIGRATIONS: readonly SchemaMigration[] = [
       `ALTER TABLE blog_posts ADD COLUMN views INTEGER NOT NULL DEFAULT 0`,
     ],
   },
+  {
+    version: 18,
+    statements: [
+      BLOG_COMMENTS_TABLE,
+      BLOG_COMMENTS_POST_INDEX,
+    ],
+  },
+  {
+    version: 19,
+    statements: [
+      BLOG_REACTIONS_TABLE,
+      BLOG_REACTIONS_POST_INDEX,
+    ],
+  },
 ]
 
 const FTS_STATEMENT = `CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
@@ -662,6 +708,8 @@ const REQUIRED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   blog_settings: ['user_id', 'title', 'description', 'password_hash', 'settings_json', 'created_at', 'updated_at'],
   blog_posts: ['user_id', 'note_id', 'slug', 'visibility', 'kind', 'is_pinned', 'views', 'published_at', 'created_at', 'updated_at'],
   blog_sessions: ['token', 'user_id', 'expires_at', 'created_at'],
+  blog_comments: ['id', 'owner_id', 'note_id', 'parent_id', 'author_type', 'author_user_id', 'author_name', 'author_email', 'author_avatar', 'content', 'is_owner', 'is_deleted', 'created_at'],
+  blog_reactions: ['owner_id', 'note_id', 'emoji', 'voter_type', 'voter_key', 'created_at'],
   share_asset_sessions: ['id', 'slug', 'password_hash', 'expires_at', 'created_at'],
   changes: ['seq', 'user_id', 'entity', 'entity_id', 'op', 'at'],
   sessions: ['id', 'user_id', 'expires_at', 'created_at'],
@@ -697,6 +745,8 @@ const REQUIRED_TABLES = [
   'blog_settings',
   'blog_posts',
   'blog_sessions',
+  'blog_comments',
+  'blog_reactions',
   'share_asset_sessions',
   'changes',
   'sessions',
@@ -743,6 +793,8 @@ const REQUIRED_INDEXES = [
   'idx_blog_posts_feed',
   'idx_blog_posts_moments',
   'idx_blog_sessions_user',
+  'idx_blog_comments_post',
+  'idx_blog_reactions_post',
   'idx_share_asset_sessions_slug',
   'idx_share_asset_sessions_expires',
   'idx_changes_user',

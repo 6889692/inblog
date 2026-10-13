@@ -2,8 +2,11 @@ import { useState } from 'react'
 import type { MomentItem } from '@shared/blog/types'
 import { BlogMarkdown } from './markdown'
 import { BlogLightbox } from './lightbox'
+import { CommentsSection } from './comments'
+import { InteractBar } from './reactions'
 import { visibleTags } from '../filter-tags'
 import { extractImageSrcs } from '@shared/markdown-utils'
+import { t } from '../../lib/i18n'
 
 function formatDate(ts: number): string {
   if (!Number.isFinite(ts) || !ts)
@@ -33,6 +36,7 @@ export function MomentCard({ moment, username, hiddenTags }: {
   hiddenTags?: string[]
 }) {
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
+  const [threadOpen, setThreadOpen] = useState(false)
   const base = `/blog/${encodeURIComponent(username)}`
   const tags = visibleTags(moment.tags, hiddenTags)
   const images = extractImageSrcs(moment.content).map((src) => appendShare(src, moment.slug))
@@ -76,6 +80,21 @@ export function MomentCard({ moment, username, hiddenTags }: {
           onNavigate={(i) => setLightbox({ images: lightbox.images, index: i })}
         />
       )}
+      <div className="blog-moment-thread">
+        <InteractBar username={username} slug={moment.slug} onComment={() => setThreadOpen(true)} />
+        {threadOpen && (
+          <CommentsSection username={username} slug={moment.slug} showTitle={false} />
+        )}
+        {threadOpen && (
+          <button
+            type="button"
+            className="blog-moment-thread-toggle"
+            onClick={() => setThreadOpen(false)}
+          >
+            {t('blog.comments_hide')}
+          </button>
+        )}
+      </div>
     </article>
   )
 }

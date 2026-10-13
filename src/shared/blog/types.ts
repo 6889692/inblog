@@ -66,3 +66,33 @@ export interface BlogMomentsResponse {
   hasMore: boolean
 }
 
+export const BLOG_REACTION_EMOJIS = ['❤️', '👍', '😄', '😕'] as const
+
+export type BlogReactionEmoji = (typeof BLOG_REACTION_EMOJIS)[number]
+
+export function isBlogReactionEmoji(value: unknown): value is BlogReactionEmoji {
+  return typeof value === 'string' && (BLOG_REACTION_EMOJIS as readonly string[]).includes(value)
+}
+
+export interface BlogComment {
+  id: string
+  parent_id: string | null
+  author_type: 'account' | 'guest'
+  author_name: string
+  author_avatar: string
+  is_owner: boolean
+  is_deleted: boolean
+  content: string
+  created_at: number
+}
+
+export interface BlogCommentsResponse {
+  comments: BlogComment[]
+  canManage: boolean
+}
+
+export interface BlogReactionsResponse {
+  counts: Record<string, number>
+  mine: string[]
+}
+

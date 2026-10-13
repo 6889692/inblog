@@ -1,13 +1,24 @@
 import type {
   BlogPostsResponse, BlogPostDetail, BlogMomentsResponse, BlogTag,
-  BlogTimelineResponse, BlogTagPost,
+  BlogTimelineResponse, BlogTagPost, BlogCommentsResponse, BlogReactionsResponse,
 } from '@shared/blog/types'
 import { CLIENT_HEADER } from '@shared/constants'
 
 const BLOG_API = '/api/blog'
 
-export class BlogAuthError extends Error {
-  constructor() { super('Blog authentication required') }
+export class BlogApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+  ) {
+    super(`Blog API error: ${status} (${code})`)
+  }
+}
+
+export class BlogAuthError extends BlogApiError {
+  constructor(code = 'blog_auth_required') {
+    super(401, code)
+  }
 }
 
 async function blogFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -15,9 +26,30 @@ async function blogFetch<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { 'Content-Type': 'application/json', [CLIENT_HEADER]: '1', ...init?.headers },
   })
-  if (res.status === 401) throw new BlogAuthError()
-  if (!res.ok) throw new Error(`Blog API error: ${res.status}`)
+  if (res.status === 401) throw new BlogAuthError(await readErrorCode(res))
+  if (!res.ok) throw new BlogApiError(res.status, await readErrorCode(res))
   return res.json() as Promise<T>
+}
+
+async function readErrorCode(res: Response): Promise<string> {
+  try {
+    return blogErrorCodeOf(await res.clone().json())
+  } catch {
+    return 'unknown'
+  }
+}
+
+export function blogErrorCodeOf(body: unknown): string {
+  if (!body || typeof body !== 'object') return 'unknown'
+  const error = (body as { error?: unknown }).error
+  if (!error || typeof error !== 'object') return 'unknown'
+  const details = (error as { details?: unknown }).details
+  if (details && typeof details === 'object') {
+    const nested = (details as { code?: unknown }).code
+    if (typeof nested === 'string' && nested) return nested
+  }
+  const code = (error as { code?: unknown }).code
+  return typeof code === 'string' && code ? code : 'unknown'
 }
 
 export async function blogLogin(username: string, password: string): Promise<boolean> {
@@ -72,6 +104,24 @@ export const blogApi = {
     blogFetch<{ tags: BlogTag[] }>(`/${encodeURIComponent(username)}/tags`),
   tag: (username: string, name: string) =>
     blogFetch<{ name: string; posts: BlogTagPost[] }>(`/${encodeURIComponent(username)}/tags/${encodeURIComponent(name)}`),
+  comments: (username: string, slug: string) =>
+    blogFetch<BlogCommentsResponse>(`/${encodeURIComponent(username)}/posts/${encodeURIComponent(slug)}/comments`),
+  postComment: (username: string, slug: string, body: { content: string; parentId?: string; nickname?: string; email?: string }) =>
+    blogFetch<{ ok: true; id: string }>(`/${encodeURIComponent(username)}/posts/${encodeURIComponent(slug)}/comments`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  deleteComment: (username: string, id: string) =>
+    blogFetch<{ ok: true }>(`/${encodeURIComponent(username)}/comments/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  reactions: (username: string, slug: string, email?: string) =>
+    blogFetch<BlogReactionsResponse>(
+      `/${encodeURIComponent(username)}/posts/${encodeURIComponent(slug)}/reactions${email ? `?email=${encodeURIComponent(email)}` : ''}`,
+    ),
+  toggleReaction: (username: string, slug: string, body: { emoji: string; email?: string }) =>
+    blogFetch<{ ok: true; active: boolean }>(`/${encodeURIComponent(username)}/posts/${encodeURIComponent(slug)}/reactions`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   settings: () =>
     blogFetch<BlogSettings>('/settings'),
   updateSettings: (body: { password?: string | null; title?: string; description?: string | null; publicTag?: string; privateTag?: string; momentsTag?: string; pinnedTag?: string }) =>

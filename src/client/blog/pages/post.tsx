@@ -1,6 +1,8 @@
 ﻿import { blogApi } from '../api'
 import type { BlogPostDetail } from '@shared/blog/types'
 import { BlogMarkdown } from '../components/markdown'
+import { CommentsSection } from '../components/comments'
+import { InteractBar } from '../components/reactions'
 import { TableOfContents } from '../components/toc'
 import LoginPage from './login'
 import { useBlogQuery } from './use-blog-query'
@@ -8,7 +10,7 @@ import { visibleTags } from '../filter-tags'
 import { t } from '../../lib/i18n'
 import { fullTime } from '../../lib/time'
 import { countText, readingMinutes } from '@shared/markdown-utils'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 
 function AuthorAvatar({ src, name }: { src: string; name: string }) {
   const [failed, setFailed] = useState(false)
@@ -32,6 +34,9 @@ export default function PostPage({ username, slug, hiddenTags }: {
   hiddenTags?: string[]
 }) {
   const decodedSlug = safeDecodeURIComponent(slug)
+  const scrollToComments = useCallback(() => {
+    document.getElementById('blog-post-comments')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
   const { status, data } = useBlogQuery<BlogPostDetail>(
     () => blogApi.post(username, decodedSlug),
     [username, decodedSlug],
@@ -87,6 +92,8 @@ export default function PostPage({ username, slug, hiddenTags }: {
             )}
           </header>
           <BlogMarkdown content={data.content} slug={data.slug} />
+          <InteractBar username={username} slug={decodedSlug} onComment={scrollToComments} />
+          <CommentsSection username={username} slug={decodedSlug} sectionId="blog-post-comments" />
           {(data.previous || data.next) && (
             <nav className="blog-post-nav" aria-label={t('blog.post_navigation')}>
               {data.previous && (

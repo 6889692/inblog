@@ -28,6 +28,8 @@ import {
 import { resyncBlogPosts } from './publish'
 import { getBlogSettings } from './settings'
 import { blogViewKey, recordBlogView, shouldCountBlogView } from './views'
+import { registerBlogCommentRoutes } from './comments'
+import { registerBlogReactionRoutes } from './reactions'
 
 export const blogRoutes = new Hono<AppBindings>()
 
@@ -264,3 +266,6 @@ blogRoutes.get('/:username/tags/:name', async (c) => {
   const posts = await listPostsByTag(c.env.DB, userId, c.req.param('name'), requestTier(c))
   return c.json({ name: c.req.param('name'), posts })
 })
+
+registerBlogCommentRoutes(blogRoutes)
+registerBlogReactionRoutes(blogRoutes)

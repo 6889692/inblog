@@ -56,4 +56,3 @@ APP_NAME = "Inkstone"
 
 [observability]
 enabled = false
-

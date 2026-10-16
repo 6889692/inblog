@@ -52,7 +52,7 @@ storage = "sqlite"
 crons = ["0 * * * *", "15,45 * * * *"]
 
 [vars]
-APP_NAME = "Inkstone"
+APP_NAME = "Inblog"
 
 [observability]
 enabled = false

@@ -1,4 +1,4 @@
-name = "inblog"
+name = "inkstone"
 main = "src/worker/index.ts"
 compatibility_date = "2026-05-01"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
@@ -52,7 +52,7 @@ storage = "sqlite"
 crons = ["0 * * * *", "15,45 * * * *"]
 
 [vars]
-APP_NAME = "Inblog"
+APP_NAME = ""
 
 [observability]
 enabled = false
